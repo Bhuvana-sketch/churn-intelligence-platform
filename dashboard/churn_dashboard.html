@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Customer Churn Intelligence Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0b1220; --panel:#101a2e; --panel2:#141f38; --border:#223055; --border-soft:#1a2543;
+  --text:#eaf0ff; --text-dim:#93a2c8; --text-faint:#5f6f96;
+  --accent:#31c9c3; --accent-soft:#173634; --risk:#ff6b5e; --risk-soft:#3a1a1e;
+  --amber:#f4b740; --violet:#8b7cf6; --green:#4ade80;
+  --grid:#1c2846;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'IBM Plex Mono',monospace;}
+
+/* ---------- Top bar ---------- */
+.topbar{
+  position:sticky; top:0; z-index:20;
+  padding-top:env(safe-area-inset-top,0px);
+  background:linear-gradient(180deg,#0d1526 0%, #0b1220 100%);
+  border-bottom:1px solid var(--border);
+}
+.topbar-inner{
+  max-width:1280px; margin:0 auto; padding:18px 24px 0 24px;
+  display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:10px;
+}
+.brand{display:flex; align-items:baseline; gap:12px;}
+.brand-mark{
+  width:10px; height:10px; border-radius:2px; background:var(--accent);
+  box-shadow:0 0 12px var(--accent); display:inline-block; margin-right:2px; transform:translateY(-1px);
+}
+.brand h1{font-size:17px; font-weight:600; margin:0; letter-spacing:0.01em;}
+.brand span.tag{color:var(--text-faint); font-size:12px; margin-left:10px;}
+.dataset-note{font-size:11.5px; color:var(--text-faint);}
+
+.tabs{
+  max-width:1280px; margin:14px auto 0 auto; padding:0 24px;
+  display:flex; gap:2px; overflow-x:auto;
+}
+.tab{
+  font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--text-dim);
+  padding:10px 16px; cursor:pointer; white-space:nowrap; border-bottom:2px solid transparent;
+  transition:color .15s ease, border-color .15s ease; user-select:none;
+}
+.tab .n{color:var(--text-faint); margin-right:8px;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--text); border-bottom-color:var(--accent);}
+.tab.active .n{color:var(--accent);}
+
+/* ---------- Layout ---------- */
+main{max-width:1280px; margin:0 auto; padding:28px 24px 64px 24px;}
+.page{display:none;}
+.page.active{display:block; animation:fade .25s ease;}
+@keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);}}
+
+.page-head{margin-bottom:22px;}
+.page-head h2{font-size:22px; margin:0 0 6px 0; font-weight:600;}
+.page-head p{margin:0; color:var(--text-dim); font-size:13.5px; max-width:640px; line-height:1.5;}
+
+/* ---------- KPI row ---------- */
+.kpi-row{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px;}
+.kpi{
+  background:var(--panel); border:1px solid var(--border-soft); border-radius:6px;
+  padding:16px 18px;
+}
+.kpi .label{font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em;}
+.kpi .value{font-family:'IBM Plex Mono',monospace; font-size:26px; font-weight:600; margin-top:6px;}
+.kpi .sub{font-size:12px; color:var(--text-dim); margin-top:4px;}
+.kpi.risk .value{color:var(--risk);}
+.kpi.good .value{color:var(--accent);}
+
+/* ---------- Grid / panels ---------- */
+.grid{display:grid; gap:14px;}
+.g2{grid-template-columns:1.3fr 1fr;}
+.g2b{grid-template-columns:1fr 1.3fr;}
+.g3{grid-template-columns:repeat(3,1fr);}
+.panel{
+  background:var(--panel); border:1px solid var(--border-soft); border-radius:6px; padding:18px 18px 12px 18px;
+}
+.panel h3{font-size:13px; font-weight:600; margin:0 0 2px 0;}
+.panel .panel-sub{font-size:11.5px; color:var(--text-faint); margin-bottom:14px;}
+.chart-wrap{position:relative; height:260px;}
+.chart-wrap.tall{height:320px;}
+
+/* ---------- Cohort cards ---------- */
+.cohort-grid{display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:18px;}
+.cohort-card{
+  background:var(--panel); border:1px solid var(--border-soft); border-radius:6px; padding:14px 14px 16px 14px;
+  border-top:3px solid var(--c);
+  cursor:default;
+}
+.cohort-card h4{font-size:12.5px; font-weight:600; margin:0 0 10px 0; line-height:1.3; min-height:32px;}
+.cohort-card .big{font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; color:var(--c);}
+.cohort-card .big-label{font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; margin-bottom:2px;}
+.cohort-card .rows{margin-top:10px; font-size:11.5px; color:var(--text-dim); display:flex; flex-direction:column; gap:4px;}
+.cohort-card .rows div{display:flex; justify-content:space-between;}
+.cohort-card .rows b{color:var(--text); font-weight:500; font-family:'IBM Plex Mono',monospace;}
+
+/* ---------- Tables ---------- */
+table{width:100%; border-collapse:collapse; font-size:12.5px;}
+thead th{
+  text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--text-faint); font-weight:500; padding:8px 10px; border-bottom:1px solid var(--border);
+  position:sticky; top:0; background:var(--panel);
+}
+tbody td{padding:8px 10px; border-bottom:1px solid var(--border-soft); color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-size:12px;}
+tbody td:first-child{color:var(--text); font-family:'IBM Plex Sans',sans-serif;}
+tbody tr:hover td{background:#0f1830;}
+.table-scroll{max-height:420px; overflow:auto;}
+.badge{
+  display:inline-block; padding:2px 8px; border-radius:20px; font-size:10.5px; font-family:'IBM Plex Mono',monospace;
+}
+.badge.high{background:var(--risk-soft); color:var(--risk);}
+.badge.med{background:#3a2f14; color:var(--amber);}
+.badge.low{background:var(--accent-soft); color:var(--accent);}
+
+/* ---------- Playbook ---------- */
+.playbook-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px;}
+.play-card{
+  background:var(--panel); border:1px solid var(--border-soft); border-radius:6px; padding:16px 18px;
+  display:flex; gap:14px;
+}
+.play-num{
+  font-family:'IBM Plex Mono',monospace; font-size:20px; font-weight:600; color:var(--accent);
+  min-width:30px;
+}
+.play-card h4{margin:0 0 6px 0; font-size:14px; font-weight:600;}
+.play-card p{margin:0 0 8px 0; font-size:12.5px; color:var(--text-dim); line-height:1.55;}
+.play-card .target{font-size:11px; font-family:'IBM Plex Mono',monospace; color:var(--text-faint);}
+.play-card .target b{color:var(--amber); font-weight:500;}
+
+footer{max-width:1280px; margin:0 auto; padding:10px 24px 40px 24px; color:var(--text-faint); font-size:11px;}
+
+@media (max-width:920px){
+  .kpi-row{grid-template-columns:repeat(2,1fr);}
+  .g2, .g2b, .g3{grid-template-columns:1fr;}
+  .cohort-grid{grid-template-columns:repeat(2,1fr);}
+  .playbook-grid{grid-template-columns:1fr;}
+}
+@media (max-width:560px){
+  .cohort-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <h1><span class="brand-mark"></span>Churn Intelligence Platform<span class="tag">Telco Retention Analytics</span></h1>
+    </div>
+    <div class="dataset-note mono">7,043 customers &middot; 26.5% churn &middot; 5 behavioural cohorts</div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<main id="main"></main>
+<footer>Source: IBM Telco Customer Churn dataset (7,043 customers). Cohorts derived via K-Means on engineered engagement/risk features. Churn model: Random Forest, AUC 0.85.</footer>
+
+<script id="data-blob" type="application/json">{"kpis": {"TotalCustomers": 7043.0, "ChurnedCustomers": 1869.0, "ChurnRate": 26.5, "AvgMonthlyRevenue": 64.76, "MonthlyRevenueAtRisk": 139130.85, "AvgTenureMonths": 32.4, "AvgEngagementScore": 42.6, "AvgRiskScore": 41.9}, "cohorts": [{"CohortName": "At-Risk Newcomers", "CustomerCount": 1511, "ChurnRatePct": 59.7, "AvgEngagementScore": 21.2, "AvgRiskScore": 79.0, "AvgTenureMonths": 10.1, "AvgMonthlyCharges": 79.74, "AvgServicesAdopted": 2.8, "PctMonthToMonth": 99.9, "PctOfBase": 21.5}, {"CohortName": "Wavering High-Spenders", "CustomerCount": 1381, "ChurnRatePct": 29.3, "AvgEngagementScore": 46.2, "AvgRiskScore": 48.3, "AvgTenureMonths": 37.5, "AvgMonthlyCharges": 85.93, "AvgServicesAdopted": 4.6, "PctMonthToMonth": 76.2, "PctOfBase": 19.6}, {"CohortName": "Disengaged Low-Spenders", "CustomerCount": 1469, "ChurnRatePct": 28.0, "AvgEngagementScore": 16.0, "AvgRiskScore": 51.6, "AvgTenureMonths": 10.2, "AvgMonthlyCharges": 33.4, "AvgServicesAdopted": 1.4, "PctMonthToMonth": 88.9, "PctOfBase": 20.9}, {"CohortName": "High-Value Champions", "CustomerCount": 1483, "ChurnRatePct": 8.2, "AvgEngagementScore": 79.5, "AvgRiskScore": 11.7, "AvgTenureMonths": 61.8, "AvgMonthlyCharges": 89.88, "AvgServicesAdopted": 6.0, "PctMonthToMonth": 0.1, "PctOfBase": 21.1}, {"CohortName": "Contract-Locked Loyalists", "CustomerCount": 1199, "ChurnRatePct": 2.5, "AvgEngagementScore": 52.2, "AvgRiskScore": 13.0, "AvgTenureMonths": 45.3, "AvgMonthlyCharges": 28.86, "AvgServicesAdopted": 1.7, "PctMonthToMonth": 0.5, "PctOfBase": 17.0}], "by_contract": [{"Contract": "Month-to-month", "ChurnRate": 0.4270967741935484, "Customers": 3875}, {"Contract": "One year", "ChurnRate": 0.1126951799049558, "Customers": 1473}, {"Contract": "Two year", "ChurnRate": 0.0283185840707964, "Customers": 1695}], "by_internet": [{"InternetService": "DSL", "ChurnRate": 0.1895910780669145, "Customers": 2421}, {"InternetService": "Fiber optic", "ChurnRate": 0.4189276485788114, "Customers": 3096}, {"InternetService": "No", "ChurnRate": 0.0740498034076015, "Customers": 1526}], "by_payment": [{"PaymentMethod": "Bank transfer (automatic)", "ChurnRate": 0.1670984455958549, "Customers": 1544}, {"PaymentMethod": "Credit card (automatic)", "ChurnRate": 0.152431011826544, "Customers": 1522}, {"PaymentMethod": "Electronic check", "ChurnRate": 0.4528541226215645, "Customers": 2365}, {"PaymentMethod": "Mailed check", "ChurnRate": 0.1910669975186104, "Customers": 1612}], "feature_importance": [{"Feature": "RiskScore", "Importance": 0.2886007177462955}, {"Feature": "MonthToMonthRisk", "Importance": 0.1665611365736979}, {"Feature": "ContractScore", "Importance": 0.1109111966173614}, {"Feature": "MonthlyCharges", "Importance": 0.0818697654542509}, {"Feature": "FiberNoSecurityRisk", "Importance": 0.080165879483967}, {"Feature": "tenure", "Importance": 0.0752126744051872}, {"Feature": "EngagementScore", "Importance": 0.0709734671050622}, {"Feature": "TotalCharges", "Importance": 0.0437630658946636}, {"Feature": "EcheckRisk", "Importance": 0.0271252952881547}, {"Feature": "PaperlessScore", "Importance": 0.0189766433927121}, {"Feature": "ServicesAdopted", "Importance": 0.0168728750436175}, {"Feature": "AutoPay", "Importance": 0.0093890772083357}, {"Feature": "SeniorCitizen", "Importance": 0.005974330721133}, {"Feature": "UnanchoredRisk", "Importance": 0.0036038750655609}], "revenue_at_risk": [{"CohortName": "At-Risk Newcomers", "Customers": 1511.0, "ChurnedCustomers": 902.0, "MonthlyRevenue": 120488.6, "MonthlyRevenueAtRisk": 73517.4, "AnnualRevenueAtRisk": 882208.8}, {"CohortName": "Wavering High-Spenders", "Customers": 1381.0, "ChurnedCustomers": 405.0, "MonthlyRevenue": 118667.75, "MonthlyRevenueAtRisk": 37203.35, "AnnualRevenueAtRisk": 446440.2}, {"CohortName": "Disengaged Low-Spenders", "Customers": 1469.0, "ChurnedCustomers": 411.0, "MonthlyRevenue": 49066.25, "MonthlyRevenueAtRisk": 15232.85, "AnnualRevenueAtRisk": 182794.2}, {"CohortName": "High-Value Champions", "Customers": 1483.0, "ChurnedCustomers": 121.0, "MonthlyRevenue": 133285.15, "MonthlyRevenueAtRisk": 11975.65, "AnnualRevenueAtRisk": 143707.8}, {"CohortName": "Contract-Locked Loyalists", "Customers": 1199.0, "ChurnedCustomers": 30.0, "MonthlyRevenue": 34608.85, "MonthlyRevenueAtRisk": 1201.6, "AnnualRevenueAtRisk": 14419.2}], "tenure_trend": [{"TenureBucket": "0-6", "ChurnRate": 0.5293720459149224}, {"TenureBucket": "7-12", "ChurnRate": 0.3588652482269504}, {"TenureBucket": "13-24", "ChurnRate": 0.287109375}, {"TenureBucket": "25-36", "ChurnRate": 0.21634615384615385}, {"TenureBucket": "37-48", "ChurnRate": 0.19028871391076116}, {"TenureBucket": "49-60", "ChurnRate": 0.14423076923076922}, {"TenureBucket": "61-72", "ChurnRate": 0.06609808102345416}], "scatter_sample": [{"EngagementScore": 5.5, "RiskScore": 63.8, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 24.8, "ChurnFlag": 1}, {"EngagementScore": 42.4, "RiskScore": 44.0, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 25.2, "ChurnFlag": 0}, {"EngagementScore": 49.0, "RiskScore": 6.6, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.4, "ChurnFlag": 0}, {"EngagementScore": 8.0, "RiskScore": 94.1, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 76.4, "ChurnFlag": 1}, {"EngagementScore": 70.1, "RiskScore": 16.2, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 50.6, "ChurnFlag": 0}, {"EngagementScore": 63.1, "RiskScore": 51.5, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 89.6, "ChurnFlag": 1}, {"EngagementScore": 68.7, "RiskScore": 15.4, "CohortName": "High-Value Champions", "MonthlyCharges": 77.2, "ChurnFlag": 0}, {"EngagementScore": 87.5, "RiskScore": 1.4, "CohortName": "High-Value Champions", "MonthlyCharges": 72.1, "ChurnFlag": 0}, {"EngagementScore": 91.5, "RiskScore": 14.4, "CohortName": "High-Value Champions", "MonthlyCharges": 104.0, "ChurnFlag": 1}, {"EngagementScore": 4.2, "RiskScore": 55.8, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.4, "ChurnFlag": 1}, {"EngagementScore": 4.2, "RiskScore": 56.1, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.4, "ChurnFlag": 0}, {"EngagementScore": 32.8, "RiskScore": 62.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 84.0, "ChurnFlag": 0}, {"EngagementScore": 36.1, "RiskScore": 27.1, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 51.0, "ChurnFlag": 0}, {"EngagementScore": 28.8, "RiskScore": 65.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 85.4, "ChurnFlag": 1}, {"EngagementScore": 21.0, "RiskScore": 42.2, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.4, "ChurnFlag": 0}, {"EngagementScore": 35.3, "RiskScore": 77.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 95.2, "ChurnFlag": 1}, {"EngagementScore": 16.6, "RiskScore": 65.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 53.8, "ChurnFlag": 1}, {"EngagementScore": 9.2, "RiskScore": 89.1, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.0, "ChurnFlag": 1}, {"EngagementScore": 38.0, "RiskScore": 70.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 88.8, "ChurnFlag": 0}, {"EngagementScore": 30.7, "RiskScore": 74.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 89.4, "ChurnFlag": 1}, {"EngagementScore": 9.2, "RiskScore": 99.2, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.2, "ChurnFlag": 0}, {"EngagementScore": 4.2, "RiskScore": 55.8, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.4, "ChurnFlag": 0}, {"EngagementScore": 48.6, "RiskScore": 58.7, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 80.0, "ChurnFlag": 0}, {"EngagementScore": 71.0, "RiskScore": 18.9, "CohortName": "High-Value Champions", "MonthlyCharges": 107.4, "ChurnFlag": 0}, {"EngagementScore": 67.4, "RiskScore": 12.4, "CohortName": "High-Value Champions", "MonthlyCharges": 104.4, "ChurnFlag": 0}, {"EngagementScore": 31.2, "RiskScore": 45.5, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 68.0, "ChurnFlag": 1}, {"EngagementScore": 51.9, "RiskScore": 67.9, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 89.3, "ChurnFlag": 1}, {"EngagementScore": 30.3, "RiskScore": 40.8, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 60.2, "ChurnFlag": 0}, {"EngagementScore": 23.5, "RiskScore": 88.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 91.5, "ChurnFlag": 0}, {"EngagementScore": 92.5, "RiskScore": 10.8, "CohortName": "High-Value Champions", "MonthlyCharges": 63.7, "ChurnFlag": 0}, {"EngagementScore": 61.8, "RiskScore": 19.9, "CohortName": "High-Value Champions", "MonthlyCharges": 104.0, "ChurnFlag": 0}, {"EngagementScore": 36.9, "RiskScore": 13.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.6, "ChurnFlag": 0}, {"EngagementScore": 96.2, "RiskScore": 1.6, "CohortName": "High-Value Champions", "MonthlyCharges": 85.2, "ChurnFlag": 0}, {"EngagementScore": 68.5, "RiskScore": 7.9, "CohortName": "High-Value Champions", "MonthlyCharges": 69.8, "ChurnFlag": 0}, {"EngagementScore": 62.9, "RiskScore": 32.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 94.1, "ChurnFlag": 0}, {"EngagementScore": 42.0, "RiskScore": 26.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.4, "ChurnFlag": 0}, {"EngagementScore": 73.8, "RiskScore": 11.5, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 21.2, "ChurnFlag": 0}, {"EngagementScore": 43.5, "RiskScore": 69.7, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 104.4, "ChurnFlag": 1}, {"EngagementScore": 69.6, "RiskScore": 35.5, "CohortName": "High-Value Champions", "MonthlyCharges": 104.9, "ChurnFlag": 0}, {"EngagementScore": 61.0, "RiskScore": 59.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 104.0, "ChurnFlag": 1}, {"EngagementScore": 11.2, "RiskScore": 98.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 69.8, "ChurnFlag": 1}, {"EngagementScore": 71.5, "RiskScore": 29.0, "CohortName": "High-Value Champions", "MonthlyCharges": 100.8, "ChurnFlag": 0}, {"EngagementScore": 16.4, "RiskScore": 92.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 75.8, "ChurnFlag": 1}, {"EngagementScore": 34.3, "RiskScore": 31.1, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 51.4, "ChurnFlag": 0}, {"EngagementScore": 42.2, "RiskScore": 74.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 94.7, "ChurnFlag": 1}, {"EngagementScore": 49.0, "RiskScore": 6.7, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.6, "ChurnFlag": 0}, {"EngagementScore": 20.9, "RiskScore": 62.4, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 76.4, "ChurnFlag": 1}, {"EngagementScore": 22.6, "RiskScore": 87.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.8, "ChurnFlag": 1}, {"EngagementScore": 22.3, "RiskScore": 86.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 89.8, "ChurnFlag": 1}, {"EngagementScore": 46.9, "RiskScore": 27.1, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 55.2, "ChurnFlag": 1}, {"EngagementScore": 13.0, "RiskScore": 50.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.9, "ChurnFlag": 0}, {"EngagementScore": 29.9, "RiskScore": 42.6, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 30.4, "ChurnFlag": 0}, {"EngagementScore": 100.0, "RiskScore": 2.6, "CohortName": "High-Value Champions", "MonthlyCharges": 113.6, "ChurnFlag": 0}, {"EngagementScore": 83.8, "RiskScore": 24.6, "CohortName": "High-Value Champions", "MonthlyCharges": 98.4, "ChurnFlag": 0}, {"EngagementScore": 62.4, "RiskScore": 33.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 96.6, "ChurnFlag": 0}, {"EngagementScore": 82.8, "RiskScore": 3.1, "CohortName": "High-Value Champions", "MonthlyCharges": 75.4, "ChurnFlag": 0}, {"EngagementScore": 91.5, "RiskScore": 4.1, "CohortName": "High-Value Champions", "MonthlyCharges": 101.1, "ChurnFlag": 0}, {"EngagementScore": 23.1, "RiskScore": 57.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 103.1, "ChurnFlag": 0}, {"EngagementScore": 9.0, "RiskScore": 54.5, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 24.6, "ChurnFlag": 0}, {"EngagementScore": 32.0, "RiskScore": 85.2, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 101.8, "ChurnFlag": 0}, {"EngagementScore": 42.4, "RiskScore": 46.7, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 70.4, "ChurnFlag": 0}, {"EngagementScore": 16.1, "RiskScore": 65.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 54.2, "ChurnFlag": 0}, {"EngagementScore": 19.1, "RiskScore": 43.4, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 21.0, "ChurnFlag": 0}, {"EngagementScore": 92.5, "RiskScore": 3.7, "CohortName": "High-Value Champions", "MonthlyCharges": 102.6, "ChurnFlag": 0}, {"EngagementScore": 12.6, "RiskScore": 87.2, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.1, "ChurnFlag": 1}, {"EngagementScore": 67.3, "RiskScore": 12.2, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.3, "ChurnFlag": 0}, {"EngagementScore": 57.7, "RiskScore": 10.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.8, "ChurnFlag": 0}, {"EngagementScore": 73.8, "RiskScore": 4.1, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 50.9, "ChurnFlag": 0}, {"EngagementScore": 32.7, "RiskScore": 20.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.9, "ChurnFlag": 0}, {"EngagementScore": 80.0, "RiskScore": 6.7, "CohortName": "High-Value Champions", "MonthlyCharges": 65.6, "ChurnFlag": 0}, {"EngagementScore": 13.0, "RiskScore": 93.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 74.5, "ChurnFlag": 1}, {"EngagementScore": 78.8, "RiskScore": 11.2, "CohortName": "High-Value Champions", "MonthlyCharges": 60.0, "ChurnFlag": 0}, {"EngagementScore": 23.6, "RiskScore": 66.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 98.6, "ChurnFlag": 1}, {"EngagementScore": 26.3, "RiskScore": 67.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 96.6, "ChurnFlag": 1}, {"EngagementScore": 50.8, "RiskScore": 35.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 99.2, "ChurnFlag": 0}, {"EngagementScore": 13.3, "RiskScore": 43.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 35.5, "ChurnFlag": 0}, {"EngagementScore": 48.8, "RiskScore": 40.3, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 90.6, "ChurnFlag": 0}, {"EngagementScore": 63.3, "RiskScore": 34.4, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 108.2, "ChurnFlag": 0}, {"EngagementScore": 9.2, "RiskScore": 55.8, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.5, "ChurnFlag": 0}, {"EngagementScore": 28.3, "RiskScore": 22.8, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.7, "ChurnFlag": 0}, {"EngagementScore": 44.9, "RiskScore": 71.3, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 74.8, "ChurnFlag": 0}, {"EngagementScore": 24.2, "RiskScore": 65.1, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 89.6, "ChurnFlag": 1}, {"EngagementScore": 22.4, "RiskScore": 51.7, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 54.2, "ChurnFlag": 0}, {"EngagementScore": 28.5, "RiskScore": 54.0, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 55.0, "ChurnFlag": 1}, {"EngagementScore": 57.1, "RiskScore": 17.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.2, "ChurnFlag": 0}, {"EngagementScore": 32.2, "RiskScore": 74.1, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 95.9, "ChurnFlag": 1}, {"EngagementScore": 72.8, "RiskScore": 19.4, "CohortName": "High-Value Champions", "MonthlyCharges": 105.0, "ChurnFlag": 1}, {"EngagementScore": 27.1, "RiskScore": 58.4, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 81.7, "ChurnFlag": 1}, {"EngagementScore": 50.8, "RiskScore": 16.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 24.6, "ChurnFlag": 0}, {"EngagementScore": 42.2, "RiskScore": 20.7, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 21.2, "RiskScore": 62.2, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 35.2, "ChurnFlag": 0}, {"EngagementScore": 44.4, "RiskScore": 37.3, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 50.2, "ChurnFlag": 0}, {"EngagementScore": 25.8, "RiskScore": 87.1, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 89.6, "ChurnFlag": 0}, {"EngagementScore": 85.8, "RiskScore": 16.6, "CohortName": "High-Value Champions", "MonthlyCharges": 102.4, "ChurnFlag": 0}, {"EngagementScore": 68.7, "RiskScore": 11.3, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.2, "ChurnFlag": 0}, {"EngagementScore": 84.0, "RiskScore": 11.2, "CohortName": "High-Value Champions", "MonthlyCharges": 44.6, "ChurnFlag": 0}, {"EngagementScore": 38.1, "RiskScore": 63.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 90.2, "ChurnFlag": 0}, {"EngagementScore": 4.2, "RiskScore": 56.0, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 26.3, "RiskScore": 77.4, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 95.2, "ChurnFlag": 1}, {"EngagementScore": 86.6, "RiskScore": 3.2, "CohortName": "High-Value Champions", "MonthlyCharges": 90.4, "ChurnFlag": 0}, {"EngagementScore": 10.6, "RiskScore": 85.6, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.2, "ChurnFlag": 0}, {"EngagementScore": 24.5, "RiskScore": 77.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 85.4, "ChurnFlag": 1}, {"EngagementScore": 28.8, "RiskScore": 22.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 21.0, "ChurnFlag": 0}, {"EngagementScore": 39.2, "RiskScore": 13.6, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 24.2, "ChurnFlag": 0}, {"EngagementScore": 5.2, "RiskScore": 65.5, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.2, "ChurnFlag": 0}, {"EngagementScore": 20.8, "RiskScore": 89.7, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 76.6, "ChurnFlag": 1}, {"EngagementScore": 84.6, "RiskScore": 12.8, "CohortName": "High-Value Champions", "MonthlyCharges": 68.8, "ChurnFlag": 0}, {"EngagementScore": 63.1, "RiskScore": 10.5, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 53.3, "ChurnFlag": 0}, {"EngagementScore": 47.0, "RiskScore": 40.9, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 91.5, "ChurnFlag": 0}, {"EngagementScore": 40.7, "RiskScore": 10.2, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 40.2, "ChurnFlag": 0}, {"EngagementScore": 21.1, "RiskScore": 59.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 84.7, "ChurnFlag": 1}, {"EngagementScore": 55.3, "RiskScore": 8.3, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 64.3, "ChurnFlag": 0}, {"EngagementScore": 20.1, "RiskScore": 52.5, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.4, "ChurnFlag": 0}, {"EngagementScore": 40.9, "RiskScore": 78.5, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 90.2, "ChurnFlag": 0}, {"EngagementScore": 23.7, "RiskScore": 55.0, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.4, "ChurnFlag": 0}, {"EngagementScore": 45.3, "RiskScore": 51.8, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 50.5, "ChurnFlag": 0}, {"EngagementScore": 94.5, "RiskScore": 1.7, "CohortName": "High-Value Champions", "MonthlyCharges": 93.2, "ChurnFlag": 0}, {"EngagementScore": 57.2, "RiskScore": 52.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 106.4, "ChurnFlag": 0}, {"EngagementScore": 38.9, "RiskScore": 49.6, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 44.4, "ChurnFlag": 0}, {"EngagementScore": 83.8, "RiskScore": 2.0, "CohortName": "High-Value Champions", "MonthlyCharges": 68.4, "ChurnFlag": 0}, {"EngagementScore": 77.9, "RiskScore": 20.2, "CohortName": "High-Value Champions", "MonthlyCharges": 78.4, "ChurnFlag": 0}, {"EngagementScore": 56.5, "RiskScore": 30.9, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 65.2, "ChurnFlag": 0}, {"EngagementScore": 28.1, "RiskScore": 18.6, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.6, "ChurnFlag": 0}, {"EngagementScore": 8.1, "RiskScore": 97.2, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 71.0, "ChurnFlag": 1}, {"EngagementScore": 34.8, "RiskScore": 43.5, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 44.6, "ChurnFlag": 0}, {"EngagementScore": 4.2, "RiskScore": 55.8, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.4, "ChurnFlag": 0}, {"EngagementScore": 15.9, "RiskScore": 92.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.0, "ChurnFlag": 1}, {"EngagementScore": 9.2, "RiskScore": 89.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 71.6, "ChurnFlag": 1}, {"EngagementScore": 55.3, "RiskScore": 3.2, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.9, "ChurnFlag": 0}, {"EngagementScore": 31.1, "RiskScore": 79.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 86.0, "ChurnFlag": 1}, {"EngagementScore": 77.8, "RiskScore": 24.9, "CohortName": "High-Value Champions", "MonthlyCharges": 95.0, "ChurnFlag": 0}, {"EngagementScore": 47.8, "RiskScore": 71.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 98.6, "ChurnFlag": 1}, {"EngagementScore": 32.7, "RiskScore": 73.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 104.4, "ChurnFlag": 1}, {"EngagementScore": 16.7, "RiskScore": 82.6, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 90.8, "ChurnFlag": 1}, {"EngagementScore": 6.2, "RiskScore": 54.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.2, "ChurnFlag": 0}, {"EngagementScore": 38.5, "RiskScore": 57.2, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 89.7, "ChurnFlag": 0}, {"EngagementScore": 43.3, "RiskScore": 47.5, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 85.2, "ChurnFlag": 1}, {"EngagementScore": 18.6, "RiskScore": 18.6, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.4, "ChurnFlag": 0}, {"EngagementScore": 65.1, "RiskScore": 22.6, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 49.8, "ChurnFlag": 0}, {"EngagementScore": 34.2, "RiskScore": 72.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 85.7, "ChurnFlag": 1}, {"EngagementScore": 61.5, "RiskScore": 53.5, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 95.2, "ChurnFlag": 1}, {"EngagementScore": 49.0, "RiskScore": 11.0, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 25.6, "ChurnFlag": 0}, {"EngagementScore": 35.2, "RiskScore": 58.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 99.0, "ChurnFlag": 1}, {"EngagementScore": 28.2, "RiskScore": 80.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 82.8, "ChurnFlag": 0}, {"EngagementScore": 55.0, "RiskScore": 16.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.5, "ChurnFlag": 0}, {"EngagementScore": 6.7, "RiskScore": 44.5, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.7, "ChurnFlag": 0}, {"EngagementScore": 46.9, "RiskScore": 17.7, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 59.8, "ChurnFlag": 0}, {"EngagementScore": 44.9, "RiskScore": 53.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 96.9, "ChurnFlag": 0}, {"EngagementScore": 68.1, "RiskScore": 3.2, "CohortName": "High-Value Champions", "MonthlyCharges": 58.2, "ChurnFlag": 0}, {"EngagementScore": 47.1, "RiskScore": 7.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 20.3, "RiskScore": 37.0, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.8, "ChurnFlag": 0}, {"EngagementScore": 67.4, "RiskScore": 20.6, "CohortName": "High-Value Champions", "MonthlyCharges": 79.8, "ChurnFlag": 0}, {"EngagementScore": 16.9, "RiskScore": 91.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 75.8, "ChurnFlag": 0}, {"EngagementScore": 46.2, "RiskScore": 53.8, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 103.6, "ChurnFlag": 0}, {"EngagementScore": 35.8, "RiskScore": 59.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 95.5, "ChurnFlag": 0}, {"EngagementScore": 38.0, "RiskScore": 46.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 79.4, "ChurnFlag": 0}, {"EngagementScore": 87.5, "RiskScore": 18.1, "CohortName": "High-Value Champions", "MonthlyCharges": 108.0, "ChurnFlag": 0}, {"EngagementScore": 17.2, "RiskScore": 90.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 78.6, "ChurnFlag": 1}, {"EngagementScore": 76.5, "RiskScore": 18.5, "CohortName": "High-Value Champions", "MonthlyCharges": 106.3, "ChurnFlag": 0}, {"EngagementScore": 87.5, "RiskScore": 11.2, "CohortName": "High-Value Champions", "MonthlyCharges": 69.6, "ChurnFlag": 0}, {"EngagementScore": 24.4, "RiskScore": 45.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.0, "ChurnFlag": 0}, {"EngagementScore": 10.2, "RiskScore": 88.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 69.6, "ChurnFlag": 0}, {"EngagementScore": 9.4, "RiskScore": 73.1, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 75.4, "ChurnFlag": 0}, {"EngagementScore": 91.0, "RiskScore": 2.5, "CohortName": "High-Value Champions", "MonthlyCharges": 75.8, "ChurnFlag": 0}, {"EngagementScore": 70.1, "RiskScore": 3.6, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 35.7, "ChurnFlag": 0}, {"EngagementScore": 14.4, "RiskScore": 93.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.9, "ChurnFlag": 1}, {"EngagementScore": 32.6, "RiskScore": 53.4, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 45.6, "ChurnFlag": 1}, {"EngagementScore": 69.4, "RiskScore": 9.6, "CohortName": "High-Value Champions", "MonthlyCharges": 81.0, "ChurnFlag": 0}, {"EngagementScore": 75.6, "RiskScore": 14.7, "CohortName": "High-Value Champions", "MonthlyCharges": 101.4, "ChurnFlag": 0}, {"EngagementScore": 76.0, "RiskScore": 2.3, "CohortName": "High-Value Champions", "MonthlyCharges": 73.7, "ChurnFlag": 0}, {"EngagementScore": 87.8, "RiskScore": 11.6, "CohortName": "High-Value Champions", "MonthlyCharges": 58.4, "ChurnFlag": 0}, {"EngagementScore": 9.2, "RiskScore": 55.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.9, "ChurnFlag": 1}, {"EngagementScore": 54.4, "RiskScore": 8.0, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 25.9, "ChurnFlag": 0}, {"EngagementScore": 41.7, "RiskScore": 11.0, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.3, "ChurnFlag": 0}, {"EngagementScore": 26.1, "RiskScore": 18.5, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 40.2, "ChurnFlag": 0}, {"EngagementScore": 16.7, "RiskScore": 82.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 89.4, "ChurnFlag": 0}, {"EngagementScore": 52.8, "RiskScore": 14.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 69.0, "ChurnFlag": 0}, {"EngagementScore": 92.5, "RiskScore": 3.8, "CohortName": "High-Value Champions", "MonthlyCharges": 104.1, "ChurnFlag": 0}, {"EngagementScore": 13.5, "RiskScore": 93.7, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 75.9, "ChurnFlag": 1}, {"EngagementScore": 22.9, "RiskScore": 41.4, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 53.6, "ChurnFlag": 0}, {"EngagementScore": 14.4, "RiskScore": 93.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.2, "ChurnFlag": 1}, {"EngagementScore": 68.7, "RiskScore": 1.1, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.3, "ChurnFlag": 0}, {"EngagementScore": 31.6, "RiskScore": 58.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.0, "ChurnFlag": 0}, {"EngagementScore": 45.1, "RiskScore": 9.0, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.9, "ChurnFlag": 0}, {"EngagementScore": 63.9, "RiskScore": 4.1, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.4, "ChurnFlag": 0}, {"EngagementScore": 61.5, "RiskScore": 1.0, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 25.4, "ChurnFlag": 0}, {"EngagementScore": 0.5, "RiskScore": 63.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 25.0, "ChurnFlag": 1}, {"EngagementScore": 39.4, "RiskScore": 42.8, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 105.6, "ChurnFlag": 1}, {"EngagementScore": 17.2, "RiskScore": 91.7, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 85.6, "ChurnFlag": 1}, {"EngagementScore": 56.2, "RiskScore": 22.0, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 56.3, "ChurnFlag": 0}, {"EngagementScore": 9.2, "RiskScore": 65.8, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.4, "ChurnFlag": 1}, {"EngagementScore": 96.2, "RiskScore": 1.5, "CohortName": "High-Value Champions", "MonthlyCharges": 84.1, "ChurnFlag": 0}, {"EngagementScore": 91.9, "RiskScore": 5.7, "CohortName": "High-Value Champions", "MonthlyCharges": 109.2, "ChurnFlag": 0}, {"EngagementScore": 64.3, "RiskScore": 37.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 79.6, "ChurnFlag": 0}, {"EngagementScore": 62.4, "RiskScore": 48.3, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 99.5, "ChurnFlag": 0}, {"EngagementScore": 51.5, "RiskScore": 43.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 48.8, "ChurnFlag": 0}, {"EngagementScore": 35.1, "RiskScore": 71.7, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 105.8, "ChurnFlag": 1}, {"EngagementScore": 85.8, "RiskScore": 2.6, "CohortName": "High-Value Champions", "MonthlyCharges": 56.6, "ChurnFlag": 0}, {"EngagementScore": 59.7, "RiskScore": 17.6, "CohortName": "High-Value Champions", "MonthlyCharges": 95.6, "ChurnFlag": 0}, {"EngagementScore": 91.2, "RiskScore": 1.2, "CohortName": "High-Value Champions", "MonthlyCharges": 79.2, "ChurnFlag": 0}, {"EngagementScore": 4.7, "RiskScore": 88.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.1, "ChurnFlag": 0}, {"EngagementScore": 88.1, "RiskScore": 13.9, "CohortName": "High-Value Champions", "MonthlyCharges": 117.2, "ChurnFlag": 0}, {"EngagementScore": 75.9, "RiskScore": 4.6, "CohortName": "High-Value Champions", "MonthlyCharges": 84.9, "ChurnFlag": 0}, {"EngagementScore": 4.2, "RiskScore": 56.0, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 19.7, "RiskScore": 55.7, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.9, "ChurnFlag": 0}, {"EngagementScore": 4.7, "RiskScore": 55.6, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.5, "ChurnFlag": 1}, {"EngagementScore": 53.1, "RiskScore": 61.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 84.6, "ChurnFlag": 0}, {"EngagementScore": 38.1, "RiskScore": 54.5, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 68.2, "ChurnFlag": 0}, {"EngagementScore": 22.6, "RiskScore": 88.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 83.2, "ChurnFlag": 1}, {"EngagementScore": 19.4, "RiskScore": 50.1, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 74.6, "RiskScore": 2.1, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 25.3, "ChurnFlag": 0}, {"EngagementScore": 7.6, "RiskScore": 44.1, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.4, "ChurnFlag": 0}, {"EngagementScore": 4.7, "RiskScore": 78.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.0, "ChurnFlag": 0}, {"EngagementScore": 17.7, "RiskScore": 47.5, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 55.8, "ChurnFlag": 0}, {"EngagementScore": 22.4, "RiskScore": 89.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 92.5, "ChurnFlag": 1}, {"EngagementScore": 40.1, "RiskScore": 27.6, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 50.8, "RiskScore": 33.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 65.0, "ChurnFlag": 0}, {"EngagementScore": 15.2, "RiskScore": 45.4, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 66.1, "RiskScore": 41.5, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 94.9, "ChurnFlag": 0}, {"EngagementScore": 55.2, "RiskScore": 20.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 40.3, "ChurnFlag": 0}, {"EngagementScore": 45.8, "RiskScore": 49.7, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 107.5, "ChurnFlag": 0}, {"EngagementScore": 44.9, "RiskScore": 73.2, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 98.7, "ChurnFlag": 0}, {"EngagementScore": 48.2, "RiskScore": 10.2, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.4, "ChurnFlag": 0}, {"EngagementScore": 61.9, "RiskScore": 20.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 62.6, "ChurnFlag": 0}, {"EngagementScore": 59.5, "RiskScore": 16.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.6, "ChurnFlag": 0}, {"EngagementScore": 86.2, "RiskScore": 13.4, "CohortName": "High-Value Champions", "MonthlyCharges": 112.4, "ChurnFlag": 0}, {"EngagementScore": 52.4, "RiskScore": 13.5, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.3, "ChurnFlag": 0}, {"EngagementScore": 72.6, "RiskScore": 18.3, "CohortName": "High-Value Champions", "MonthlyCharges": 67.4, "ChurnFlag": 0}, {"EngagementScore": 23.0, "RiskScore": 73.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 74.6, "ChurnFlag": 1}, {"EngagementScore": 26.0, "RiskScore": 46.1, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 81.0, "ChurnFlag": 0}, {"EngagementScore": 57.0, "RiskScore": 9.2, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 60.6, "ChurnFlag": 0}, {"EngagementScore": 86.3, "RiskScore": 3.4, "CohortName": "High-Value Champions", "MonthlyCharges": 69.2, "ChurnFlag": 0}, {"EngagementScore": 17.8, "RiskScore": 70.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 73.8, "ChurnFlag": 1}, {"EngagementScore": 50.3, "RiskScore": 35.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 85.8, "ChurnFlag": 0}, {"EngagementScore": 11.7, "RiskScore": 92.6, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 90.6, "ChurnFlag": 1}, {"EngagementScore": 64.6, "RiskScore": 19.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 55.5, "ChurnFlag": 0}, {"EngagementScore": 10.9, "RiskScore": 82.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 75.4, "ChurnFlag": 1}, {"EngagementScore": 37.2, "RiskScore": 45.3, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 71.4, "ChurnFlag": 0}, {"EngagementScore": 22.1, "RiskScore": 78.7, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 84.0, "ChurnFlag": 0}, {"EngagementScore": 51.9, "RiskScore": 19.2, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 24.6, "ChurnFlag": 0}, {"EngagementScore": 80.5, "RiskScore": 17.5, "CohortName": "High-Value Champions", "MonthlyCharges": 77.8, "ChurnFlag": 0}, {"EngagementScore": 23.5, "RiskScore": 25.6, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.5, "ChurnFlag": 0}, {"EngagementScore": 9.2, "RiskScore": 70.1, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 35.6, "ChurnFlag": 1}, {"EngagementScore": 96.2, "RiskScore": 1.5, "CohortName": "High-Value Champions", "MonthlyCharges": 84.2, "ChurnFlag": 0}, {"EngagementScore": 91.9, "RiskScore": 5.7, "CohortName": "High-Value Champions", "MonthlyCharges": 110.1, "ChurnFlag": 0}, {"EngagementScore": 86.5, "RiskScore": 1.4, "CohortName": "High-Value Champions", "MonthlyCharges": 64.6, "ChurnFlag": 0}, {"EngagementScore": 18.9, "RiskScore": 55.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 64.1, "ChurnFlag": 0}, {"EngagementScore": 9.2, "RiskScore": 72.7, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 45.6, "ChurnFlag": 1}, {"EngagementScore": 31.5, "RiskScore": 26.7, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.8, "ChurnFlag": 0}, {"EngagementScore": 5.3, "RiskScore": 61.2, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 25.2, "ChurnFlag": 0}, {"EngagementScore": 12.8, "RiskScore": 91.1, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 75.0, "ChurnFlag": 1}, {"EngagementScore": 49.9, "RiskScore": 58.9, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 88.5, "ChurnFlag": 0}, {"EngagementScore": 59.3, "RiskScore": 17.8, "CohortName": "High-Value Champions", "MonthlyCharges": 76.1, "ChurnFlag": 0}, {"EngagementScore": 85.9, "RiskScore": 14.9, "CohortName": "High-Value Champions", "MonthlyCharges": 88.6, "ChurnFlag": 0}, {"EngagementScore": 39.7, "RiskScore": 54.8, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 89.4, "ChurnFlag": 0}, {"EngagementScore": 50.3, "RiskScore": 75.9, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 106.4, "ChurnFlag": 1}, {"EngagementScore": 36.0, "RiskScore": 21.7, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 59.5, "ChurnFlag": 0}, {"EngagementScore": 59.9, "RiskScore": 10.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 60.3, "ChurnFlag": 0}, {"EngagementScore": 77.5, "RiskScore": 0.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 25.2, "ChurnFlag": 0}, {"EngagementScore": 91.2, "RiskScore": 1.3, "CohortName": "High-Value Champions", "MonthlyCharges": 80.2, "ChurnFlag": 0}, {"EngagementScore": 66.1, "RiskScore": 21.6, "CohortName": "High-Value Champions", "MonthlyCharges": 95.6, "ChurnFlag": 0}, {"EngagementScore": 4.2, "RiskScore": 55.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.8, "ChurnFlag": 1}, {"EngagementScore": 34.1, "RiskScore": 37.7, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 45.0, "ChurnFlag": 0}, {"EngagementScore": 41.7, "RiskScore": 79.5, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 100.0, "ChurnFlag": 0}, {"EngagementScore": 35.5, "RiskScore": 53.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 61.6, "ChurnFlag": 0}, {"EngagementScore": 62.6, "RiskScore": 9.2, "CohortName": "High-Value Champions", "MonthlyCharges": 78.0, "ChurnFlag": 0}, {"EngagementScore": 10.1, "RiskScore": 48.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 44.0, "ChurnFlag": 0}, {"EngagementScore": 23.2, "RiskScore": 63.6, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 49.8, "ChurnFlag": 0}, {"EngagementScore": 59.5, "RiskScore": 19.7, "CohortName": "High-Value Champions", "MonthlyCharges": 96.8, "ChurnFlag": 0}, {"EngagementScore": 34.2, "RiskScore": 53.0, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 49.6, "ChurnFlag": 1}, {"EngagementScore": 41.7, "RiskScore": 20.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.8, "ChurnFlag": 0}, {"EngagementScore": 19.2, "RiskScore": 46.6, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 55.3, "ChurnFlag": 1}, {"EngagementScore": 19.7, "RiskScore": 59.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.6, "ChurnFlag": 1}, {"EngagementScore": 29.6, "RiskScore": 17.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.8, "ChurnFlag": 1}, {"EngagementScore": 72.0, "RiskScore": 0.6, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 25.0, "ChurnFlag": 0}, {"EngagementScore": 60.1, "RiskScore": 14.9, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 82.0, "ChurnFlag": 0}, {"EngagementScore": 6.7, "RiskScore": 51.3, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 45.6, "ChurnFlag": 0}, {"EngagementScore": 40.6, "RiskScore": 51.3, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 87.6, "ChurnFlag": 0}, {"EngagementScore": 49.1, "RiskScore": 35.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 58.6, "ChurnFlag": 0}, {"EngagementScore": 38.8, "RiskScore": 12.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 21.0, "ChurnFlag": 0}, {"EngagementScore": 55.3, "RiskScore": 35.4, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 84.0, "ChurnFlag": 0}, {"EngagementScore": 77.9, "RiskScore": 4.6, "CohortName": "High-Value Champions", "MonthlyCharges": 60.8, "ChurnFlag": 0}, {"EngagementScore": 53.3, "RiskScore": 19.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 65.6, "ChurnFlag": 0}, {"EngagementScore": 45.6, "RiskScore": 18.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 18.8, "ChurnFlag": 0}, {"EngagementScore": 55.2, "RiskScore": 35.7, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 80.4, "ChurnFlag": 1}, {"EngagementScore": 16.7, "RiskScore": 92.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 85.7, "ChurnFlag": 1}, {"EngagementScore": 9.2, "RiskScore": 99.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 69.6, "ChurnFlag": 1}, {"EngagementScore": 19.2, "RiskScore": 69.7, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.0, "ChurnFlag": 1}, {"EngagementScore": 16.9, "RiskScore": 91.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 76.2, "ChurnFlag": 0}, {"EngagementScore": 100.0, "RiskScore": 2.6, "CohortName": "High-Value Champions", "MonthlyCharges": 114.0, "ChurnFlag": 0}, {"EngagementScore": 64.5, "RiskScore": 26.8, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 52.3, "ChurnFlag": 0}, {"EngagementScore": 73.3, "RiskScore": 1.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.6, "ChurnFlag": 0}, {"EngagementScore": 84.9, "RiskScore": 6.5, "CohortName": "High-Value Champions", "MonthlyCharges": 94.6, "ChurnFlag": 0}, {"EngagementScore": 32.4, "RiskScore": 38.3, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.6, "ChurnFlag": 0}, {"EngagementScore": 99.0, "RiskScore": 3.3, "CohortName": "High-Value Champions", "MonthlyCharges": 115.2, "ChurnFlag": 0}, {"EngagementScore": 49.0, "RiskScore": 70.2, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 95.6, "ChurnFlag": 1}, {"EngagementScore": 11.5, "RiskScore": 51.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.4, "ChurnFlag": 0}, {"EngagementScore": 73.3, "RiskScore": 14.9, "CohortName": "High-Value Champions", "MonthlyCharges": 110.8, "ChurnFlag": 1}, {"EngagementScore": 40.2, "RiskScore": 75.2, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 95.4, "ChurnFlag": 0}, {"EngagementScore": 51.4, "RiskScore": 67.7, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 84.8, "ChurnFlag": 1}, {"EngagementScore": 60.0, "RiskScore": 19.7, "CohortName": "High-Value Champions", "MonthlyCharges": 99.1, "ChurnFlag": 0}, {"EngagementScore": 13.2, "RiskScore": 67.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 56.8, "ChurnFlag": 0}, {"EngagementScore": 90.4, "RiskScore": 6.5, "CohortName": "High-Value Champions", "MonthlyCharges": 110.0, "ChurnFlag": 0}, {"EngagementScore": 46.4, "RiskScore": 51.9, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 92.4, "ChurnFlag": 0}, {"EngagementScore": 64.2, "RiskScore": 15.2, "CohortName": "High-Value Champions", "MonthlyCharges": 78.6, "ChurnFlag": 0}, {"EngagementScore": 54.5, "RiskScore": 6.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.4, "ChurnFlag": 0}, {"EngagementScore": 56.1, "RiskScore": 8.3, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.4, "ChurnFlag": 0}, {"EngagementScore": 58.5, "RiskScore": 32.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 88.9, "ChurnFlag": 0}, {"EngagementScore": 29.7, "RiskScore": 41.8, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 59.1, "ChurnFlag": 0}, {"EngagementScore": 11.7, "RiskScore": 82.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 85.8, "ChurnFlag": 1}, {"EngagementScore": 9.2, "RiskScore": 62.7, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 45.6, "ChurnFlag": 0}, {"EngagementScore": 52.9, "RiskScore": 4.6, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 58.4, "RiskScore": 4.4, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.6, "ChurnFlag": 0}, {"EngagementScore": 37.9, "RiskScore": 10.2, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 33.6, "ChurnFlag": 1}, {"EngagementScore": 46.9, "RiskScore": 23.7, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.8, "ChurnFlag": 0}, {"EngagementScore": 30.6, "RiskScore": 69.7, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 85.4, "ChurnFlag": 1}, {"EngagementScore": 68.7, "RiskScore": 1.3, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 39.9, "RiskScore": 24.8, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.6, "ChurnFlag": 0}, {"EngagementScore": 46.6, "RiskScore": 56.3, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 95.0, "ChurnFlag": 1}, {"EngagementScore": 55.0, "RiskScore": 6.0, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 19.0, "ChurnFlag": 0}, {"EngagementScore": 31.0, "RiskScore": 70.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 95.5, "ChurnFlag": 0}, {"EngagementScore": 72.2, "RiskScore": 10.7, "CohortName": "High-Value Champions", "MonthlyCharges": 60.0, "ChurnFlag": 0}, {"EngagementScore": 41.6, "RiskScore": 66.7, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 99.7, "ChurnFlag": 0}, {"EngagementScore": 46.9, "RiskScore": 17.3, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 56.2, "ChurnFlag": 0}, {"EngagementScore": 21.0, "RiskScore": 80.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 91.4, "ChurnFlag": 0}, {"EngagementScore": 76.2, "RiskScore": 6.4, "CohortName": "High-Value Champions", "MonthlyCharges": 79.0, "ChurnFlag": 0}, {"EngagementScore": 44.4, "RiskScore": 40.8, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 45.3, "ChurnFlag": 1}, {"EngagementScore": 79.8, "RiskScore": 27.2, "CohortName": "High-Value Champions", "MonthlyCharges": 79.2, "ChurnFlag": 0}, {"EngagementScore": 27.5, "RiskScore": 52.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 69.5, "ChurnFlag": 0}, {"EngagementScore": 40.5, "RiskScore": 31.0, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 56.1, "RiskScore": 52.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 101.1, "ChurnFlag": 0}, {"EngagementScore": 11.2, "RiskScore": 54.7, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.2, "ChurnFlag": 0}, {"EngagementScore": 14.4, "RiskScore": 65.8, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 33.6, "ChurnFlag": 1}, {"EngagementScore": 18.7, "RiskScore": 91.4, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 89.5, "ChurnFlag": 1}, {"EngagementScore": 66.6, "RiskScore": 4.4, "CohortName": "High-Value Champions", "MonthlyCharges": 61.4, "ChurnFlag": 0}, {"EngagementScore": 50.8, "RiskScore": 21.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 21.4, "ChurnFlag": 0}, {"EngagementScore": 49.4, "RiskScore": 55.8, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 97.0, "ChurnFlag": 0}, {"EngagementScore": 4.7, "RiskScore": 65.7, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.9, "ChurnFlag": 0}, {"EngagementScore": 23.2, "RiskScore": 78.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 80.2, "ChurnFlag": 0}, {"EngagementScore": 82.8, "RiskScore": 2.6, "CohortName": "High-Value Champions", "MonthlyCharges": 69.0, "ChurnFlag": 0}, {"EngagementScore": 39.6, "RiskScore": 39.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 66.3, "ChurnFlag": 0}, {"EngagementScore": 70.9, "RiskScore": 26.1, "CohortName": "High-Value Champions", "MonthlyCharges": 107.8, "ChurnFlag": 0}, {"EngagementScore": 27.8, "RiskScore": 23.3, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 20.4, "ChurnFlag": 0}, {"EngagementScore": 57.2, "RiskScore": 62.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 105.6, "ChurnFlag": 1}, {"EngagementScore": 38.4, "RiskScore": 50.9, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 90.4, "ChurnFlag": 1}, {"EngagementScore": 85.8, "RiskScore": 3.7, "CohortName": "High-Value Champions", "MonthlyCharges": 113.2, "ChurnFlag": 0}, {"EngagementScore": 4.2, "RiskScore": 59.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 35.0, "ChurnFlag": 0}, {"EngagementScore": 60.1, "RiskScore": 31.2, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 70.4, "ChurnFlag": 0}, {"EngagementScore": 43.6, "RiskScore": 36.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 73.6, "ChurnFlag": 0}, {"EngagementScore": 86.1, "RiskScore": 3.5, "CohortName": "High-Value Champions", "MonthlyCharges": 90.6, "ChurnFlag": 0}, {"EngagementScore": 30.3, "RiskScore": 74.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 84.3, "ChurnFlag": 0}, {"EngagementScore": 21.0, "RiskScore": 67.9, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.8, "ChurnFlag": 1}, {"EngagementScore": 14.2, "RiskScore": 55.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 19.6, "ChurnFlag": 0}, {"EngagementScore": 8.0, "RiskScore": 59.6, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 50.6, "ChurnFlag": 1}, {"EngagementScore": 64.4, "RiskScore": 7.8, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 24.6, "ChurnFlag": 0}, {"EngagementScore": 87.1, "RiskScore": 14.3, "CohortName": "High-Value Champions", "MonthlyCharges": 114.3, "ChurnFlag": 0}, {"EngagementScore": 68.7, "RiskScore": 9.0, "CohortName": "High-Value Champions", "MonthlyCharges": 106.6, "ChurnFlag": 1}, {"EngagementScore": 91.5, "RiskScore": 2.6, "CohortName": "High-Value Champions", "MonthlyCharges": 80.4, "ChurnFlag": 0}, {"EngagementScore": 38.0, "RiskScore": 70.4, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 92.5, "ChurnFlag": 1}, {"EngagementScore": 14.0, "RiskScore": 94.2, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.9, "ChurnFlag": 1}, {"EngagementScore": 37.4, "RiskScore": 41.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 55.3, "ChurnFlag": 0}, {"EngagementScore": 72.9, "RiskScore": 28.1, "CohortName": "High-Value Champions", "MonthlyCharges": 100.5, "ChurnFlag": 0}, {"EngagementScore": 29.5, "RiskScore": 47.1, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 33.4, "ChurnFlag": 0}, {"EngagementScore": 20.6, "RiskScore": 46.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 74.4, "ChurnFlag": 0}, {"EngagementScore": 55.4, "RiskScore": 13.9, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 52.5, "ChurnFlag": 0}, {"EngagementScore": 21.0, "RiskScore": 90.3, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 93.8, "ChurnFlag": 1}, {"EngagementScore": 72.6, "RiskScore": 6.9, "CohortName": "High-Value Champions", "MonthlyCharges": 90.6, "ChurnFlag": 1}, {"EngagementScore": 13.5, "RiskScore": 68.8, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 47.8, "ChurnFlag": 1}, {"EngagementScore": 4.2, "RiskScore": 56.1, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.4, "ChurnFlag": 1}, {"EngagementScore": 13.0, "RiskScore": 84.6, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.4, "ChurnFlag": 1}, {"EngagementScore": 33.1, "RiskScore": 29.2, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 54.2, "ChurnFlag": 0}, {"EngagementScore": 33.5, "RiskScore": 80.4, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 94.8, "ChurnFlag": 0}, {"EngagementScore": 9.2, "RiskScore": 99.2, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.1, "ChurnFlag": 1}, {"EngagementScore": 19.7, "RiskScore": 79.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 70.4, "ChurnFlag": 0}, {"EngagementScore": 22.1, "RiskScore": 68.0, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.0, "ChurnFlag": 1}, {"EngagementScore": 53.8, "RiskScore": 16.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 98.0, "ChurnFlag": 0}, {"EngagementScore": 47.0, "RiskScore": 13.8, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 72.1, "ChurnFlag": 0}, {"EngagementScore": 96.2, "RiskScore": 3.2, "CohortName": "High-Value Champions", "MonthlyCharges": 109.6, "ChurnFlag": 0}, {"EngagementScore": 23.9, "RiskScore": 78.7, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 94.2, "ChurnFlag": 1}, {"EngagementScore": 28.6, "RiskScore": 76.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 98.5, "ChurnFlag": 1}, {"EngagementScore": 11.2, "RiskScore": 87.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 69.0, "ChurnFlag": 1}, {"EngagementScore": 86.9, "RiskScore": 4.0, "CohortName": "High-Value Champions", "MonthlyCharges": 83.5, "ChurnFlag": 0}, {"EngagementScore": 72.0, "RiskScore": 0.7, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 25.6, "ChurnFlag": 0}, {"EngagementScore": 49.9, "RiskScore": 76.1, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 104.4, "ChurnFlag": 0}, {"EngagementScore": 52.8, "RiskScore": 5.6, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 23.0, "ChurnFlag": 0}, {"EngagementScore": 4.2, "RiskScore": 62.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 46.3, "ChurnFlag": 1}, {"EngagementScore": 8.0, "RiskScore": 94.7, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 79.6, "ChurnFlag": 1}, {"EngagementScore": 100.0, "RiskScore": 12.6, "CohortName": "High-Value Champions", "MonthlyCharges": 112.8, "ChurnFlag": 0}, {"EngagementScore": 12.7, "RiskScore": 91.2, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 83.8, "ChurnFlag": 1}, {"EngagementScore": 28.6, "RiskScore": 39.6, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 60.9, "ChurnFlag": 0}, {"EngagementScore": 36.5, "RiskScore": 39.1, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 51.0, "ChurnFlag": 0}, {"EngagementScore": 53.5, "RiskScore": 21.3, "CohortName": "Contract-Locked Loyalists", "MonthlyCharges": 25.7, "ChurnFlag": 0}, {"EngagementScore": 34.6, "RiskScore": 38.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 60.6, "ChurnFlag": 0}, {"EngagementScore": 13.0, "RiskScore": 83.8, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 74.5, "ChurnFlag": 1}, {"EngagementScore": 35.4, "RiskScore": 55.2, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 78.6, "ChurnFlag": 0}, {"EngagementScore": 17.7, "RiskScore": 61.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 86.0, "ChurnFlag": 0}, {"EngagementScore": 18.2, "RiskScore": 91.5, "CohortName": "At-Risk Newcomers", "MonthlyCharges": 88.4, "ChurnFlag": 1}, {"EngagementScore": 36.5, "RiskScore": 71.0, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 89.8, "ChurnFlag": 0}, {"EngagementScore": 4.2, "RiskScore": 55.9, "CohortName": "Disengaged Low-Spenders", "MonthlyCharges": 20.0, "ChurnFlag": 0}, {"EngagementScore": 31.0, "RiskScore": 55.3, "CohortName": "Wavering High-Spenders", "MonthlyCharges": 96.3, "ChurnFlag": 1}], "watchlist": [{"customerID": "1628-BIZYP", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 91.7, "RiskScore": 91.88640132669984, "EngagementScore": 16.73611111111111, "tenure": 1, "MonthlyCharges": 85.0, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "4912-PIGUY", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 91.7, "RiskScore": 91.83372353916693, "EngagementScore": 16.73611111111111, "tenure": 1, "MonthlyCharges": 84.6, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "7577-SWIFR", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 91.6, "RiskScore": 92.44610281923715, "EngagementScore": 16.73611111111111, "tenure": 1, "MonthlyCharges": 89.25, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "7439-DKZTW", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 91.4, "RiskScore": 94.83635742854356, "EngagementScore": 12.986111111111107, "tenure": 1, "MonthlyCharges": 80.55, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "1941-HOSAM", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 91.3, "RiskScore": 82.5580431177446, "EngagementScore": 16.73611111111111, "tenure": 1, "MonthlyCharges": 90.1, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "1452-VOQCH", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 91.2, "RiskScore": 93.87937762169544, "EngagementScore": 12.986111111111107, "tenure": 1, "MonthlyCharges": 75.1, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "2018-QKYGT", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 91.0, "RiskScore": 84.92415374109842, "EngagementScore": 12.986111111111107, "tenure": 1, "MonthlyCharges": 81.05, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "4273-MBHYA", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 91.0, "RiskScore": 82.45927226612038, "EngagementScore": 16.73611111111111, "tenure": 1, "MonthlyCharges": 89.35, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "0021-IKXGC", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 90.8, "RiskScore": 93.3525997463662, "EngagementScore": 12.986111111111107, "tenure": 1, "MonthlyCharges": 72.1, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "5542-TBBWB", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 90.6, "RiskScore": 99.10325821871037, "EngagementScore": 9.23611111111111, "tenure": 1, "MonthlyCharges": 69.9, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "6350-XFYGW", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.9, "RiskScore": 89.84147888010925, "EngagementScore": 21.944444444444443, "tenure": 4, "MonthlyCharges": 94.75, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "5150-ITWWB", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.9, "RiskScore": 90.1297922153936, "EngagementScore": 21.458333333333336, "tenure": 3, "MonthlyCharges": 94.85, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "7465-ZZRVX", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.7, "RiskScore": 99.22178324065943, "EngagementScore": 9.23611111111111, "tenure": 1, "MonthlyCharges": 70.35, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "3878-AVSOQ", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.6, "RiskScore": 99.4588332845576, "EngagementScore": 9.23611111111111, "tenure": 1, "MonthlyCharges": 71.25, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "1640-PLFMP", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.6, "RiskScore": 99.19544434689298, "EngagementScore": 9.23611111111111, "tenure": 1, "MonthlyCharges": 70.25, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "9603-OAIHC", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.4, "RiskScore": 99.14276655936008, "EngagementScore": 9.23611111111111, "tenure": 1, "MonthlyCharges": 70.05, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "9605-WGJVW", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.3, "RiskScore": 99.18227490000974, "EngagementScore": 9.23611111111111, "tenure": 1, "MonthlyCharges": 70.2, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "4927-WWOOZ", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.3, "RiskScore": 80.0493610379475, "EngagementScore": 20.97222222222222, "tenure": 2, "MonthlyCharges": 91.45, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "2254-DLXRI", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.1, "RiskScore": 81.11598868403082, "EngagementScore": 16.73611111111111, "tenure": 1, "MonthlyCharges": 79.15, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Mailed check"}, {"customerID": "2545-EBUPK", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 89.0, "RiskScore": 91.48351380353137, "EngagementScore": 17.22222222222222, "tenure": 2, "MonthlyCharges": 84.05, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "8161-QYMTT", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 88.8, "RiskScore": 88.93966442298313, "EngagementScore": 23.40277777777778, "tenure": 7, "MonthlyCharges": 94.1, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "6969-MVBAI", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 88.7, "RiskScore": 87.96268656716417, "EngagementScore": 24.375, "tenure": 9, "MonthlyCharges": 90.1, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "5032-MIYKT", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 88.7, "RiskScore": 89.31396936884207, "EngagementScore": 9.23611111111111, "tenure": 1, "MonthlyCharges": 70.7, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Mailed check"}, {"customerID": "8622-ZLFKO", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 88.6, "RiskScore": 78.8645010242903, "EngagementScore": 22.916666666666668, "tenure": 6, "MonthlyCharges": 90.75, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}, {"customerID": "5043-TRZWM", "CohortName": "At-Risk Newcomers", "PredictedChurnProbability": 88.5, "RiskScore": 93.95839430299483, "EngagementScore": 7.986111111111111, "tenure": 1, "MonthlyCharges": 75.55, "Contract": "Month-to-month", "InternetService": "Fiber optic", "PaymentMethod": "Electronic check"}]}</script>
+<script>
+const DATA = JSON.parse(document.getElementById('data-blob').textContent);
+</script>
+<script>
+/* ===================== Config ===================== */
+const COHORT_COLOR = {
+  "At-Risk Newcomers": "#ff6b5e",
+  "Wavering High-Spenders": "#f4b740",
+  "Disengaged Low-Spenders": "#8b7cf6",
+  "High-Value Champions": "#31c9c3",
+  "Contract-Locked Loyalists": "#4ade80",
+};
+Chart.defaults.font.family = "'IBM Plex Sans', sans-serif";
+Chart.defaults.color = "#93a2c8";
+Chart.defaults.borderColor = "#1c2846";
+
+const fmt = {
+  pct1: (v) => v.toFixed(1) + "%",
+  money: (v) => "$" + Number(v).toLocaleString(undefined, {maximumFractionDigits:0}),
+  int: (v) => Number(v).toLocaleString(),
+};
+
+/* ===================== Page definitions ===================== */
+const PAGES = [
+  { id: "overview", label: "Executive Overview" },
+  { id: "cohorts", label: "Cohort Explorer" },
+  { id: "drivers", label: "Churn Drivers" },
+  { id: "revenue", label: "Revenue at Risk" },
+  { id: "playbook", label: "Retention Playbook" },
+];
+
+const PLAYBOOK = [
+  {
+    title: "90-Day Contract Migration Offer",
+    body: "Month-to-month customers churn at 42.7% vs 2.8% on two-year contracts \u2014 the single largest driver in the model. Trigger a one-time discount (1\u20132 months free) to migrate At-Risk Newcomers and Wavering High-Spenders onto annual terms within their first 90 days.",
+    target: "At-Risk Newcomers, Wavering High-Spenders",
+    metric: "Contract score is the #2 churn driver (16.7% importance)",
+  },
+  {
+    title: "Fiber Security & Support Bundle",
+    body: "Fiber customers without Online Security or Tech Support churn nearly 2.2x more than fully-protected fiber accounts. Offer a free 60-day trial of both add-ons at signup and at the 3-month mark for unprotected fiber households.",
+    target: "At-Risk Newcomers, Wavering High-Spenders on Fiber",
+    metric: "Fiber-without-security flag: 8.0% of model importance",
+  },
+  {
+    title: "First-90-Days Onboarding Journey",
+    body: "Customers in months 0\u20136 churn at 52.9%, more than double the 25\u201336 month cohort. Deploy a structured onboarding sequence \u2014 welcome call, usage check-in at day 30, proactive support outreach at day 60 \u2014 for all new sign-ups, prioritising the two low-tenure cohorts.",
+    target: "At-Risk Newcomers, Disengaged Low-Spenders",
+    metric: "Tenure risk: 20% of model importance; 0\u20136mo churn = 52.9%",
+  },
+  {
+    title: "Autopay Migration Incentive",
+    body: "Electronic check payers churn at 45.3% versus ~15\u201317% for automatic bank transfer/credit card. A small statement credit for enrolling in autopay removes billing friction and is one of the cheapest levers available.",
+    target: "All cohorts paying by electronic check",
+    metric: "Electronic check flag: 2.7% importance, but 2\u20133x churn gap",
+  },
+  {
+    title: "High-Value Concierge Save Desk",
+    body: "Route any customer whose PredictedChurnProbability crosses 50% and whose MonthlyCharges sit in the top quartile to a named retention specialist for a proactive call before the standard win-back trigger fires \u2014 protecting the $37K/mo at risk in the Wavering High-Spenders cohort.",
+    target: "Wavering High-Spenders, High-Value Champions showing rising risk",
+    metric: "Wavering High-Spenders hold $446K of annual revenue at risk",
+  },
+  {
+    title: "Service-Gap Cross-Sell Nudges",
+    body: "Disengaged Low-Spenders average just 1.4 adopted services (lowest of any cohort) and the lowest engagement score (16.0). Trigger a lightweight, benefit-led nudge (email + in-app) recommending one relevant add-on based on their existing internet/phone footprint.",
+    target: "Disengaged Low-Spenders",
+    metric: "ServicesAdopted correlates with engagement (r=+ moderate); engagement is inversely correlated with churn (r=-0.34)",
+  },
+];
+
+/* ===================== Render shell ===================== */
+function renderTabs(){
+  const tabs = document.getElementById('tabs');
+  tabs.innerHTML = PAGES.map((p,i)=>`<div class="tab" data-page="${p.id}"><span class="n">0${i+1}</span>${p.label}</div>`).join('');
+  tabs.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=> showPage(t.dataset.page));
+  });
+}
+
+function showPage(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.dataset.page===id));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+id));
+  if (id === 'overview' && !window.__charted_overview) { buildOverviewCharts(); window.__charted_overview = true; }
+  if (id === 'cohorts' && !window.__charted_cohorts) { buildCohortCharts(); window.__charted_cohorts = true; }
+  if (id === 'drivers' && !window.__charted_drivers) { buildDriverCharts(); window.__charted_drivers = true; }
+  if (id === 'revenue' && !window.__charted_revenue) { buildRevenueCharts(); window.__charted_revenue = true; }
+}
+
+/* ===================== Page 1: Overview ===================== */
+function pageOverview(){
+  const k = DATA.kpis;
+  return `
+  <div class="page-head">
+    <h2>Executive Overview</h2>
+    <p>Base-wide health metrics across the full 7,043-customer book, refreshed from the scored customer table.</p>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi risk"><div class="label">Churn Rate</div><div class="value">${fmt.pct1(k.ChurnRate)}</div><div class="sub">${fmt.int(k.ChurnedCustomers)} of ${fmt.int(k.TotalCustomers)} customers</div></div>
+    <div class="kpi risk"><div class="label">Monthly Revenue at Risk</div><div class="value">${fmt.money(k.MonthlyRevenueAtRisk)}</div><div class="sub">from churned accounts, last period</div></div>
+    <div class="kpi"><div class="label">Avg. Tenure</div><div class="value">${k.AvgTenureMonths.toFixed(1)}<span style="font-size:14px;color:var(--text-faint)"> mo</span></div><div class="sub">across active + churned base</div></div>
+    <div class="kpi good"><div class="label">Avg. Engagement Score</div><div class="value">${k.AvgEngagementScore.toFixed(1)}</div><div class="sub">of 100 &middot; risk score avg ${k.AvgRiskScore.toFixed(1)}</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="panel">
+      <h3>Churn Rate by Tenure</h3>
+      <div class="panel-sub">New accounts churn 8x more than long-tenured ones \u2014 tenure is the clearest retention lever</div>
+      <div class="chart-wrap"><canvas id="chart-tenure-trend"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Churn Rate by Contract Type</h3>
+      <div class="panel-sub">Month-to-month vs. one/two-year commitments</div>
+      <div class="chart-wrap"><canvas id="chart-contract-overview"></canvas></div>
+    </div>
+  </div>`;
+}
+
+function buildOverviewCharts(){
+  const tt = DATA.tenure_trend;
+  new Chart(document.getElementById('chart-tenure-trend'), {
+    type:'line',
+    data:{ labels: tt.map(d=>d.TenureBucket+' mo'),
+      datasets:[{ data: tt.map(d=>d.ChurnRate*100), borderColor:'#ff6b5e', backgroundColor:'rgba(255,107,94,0.12)',
+        fill:true, tension:.35, pointRadius:3, pointBackgroundColor:'#ff6b5e' }]},
+    options:{ plugins:{legend:{display:false}}, scales:{
+      y:{ grid:{color:'#1c2846'}, ticks:{callback:v=>v+'%'} }, x:{ grid:{display:false} } } }
+  });
+
+  const bc = DATA.by_contract;
+  new Chart(document.getElementById('chart-contract-overview'), {
+    type:'bar',
+    data:{ labels: bc.map(d=>d.Contract),
+      datasets:[{ data: bc.map(d=>d.ChurnRate*100), backgroundColor:['#ff6b5e','#f4b740','#4ade80'], borderRadius:4, maxBarThickness:60 }]},
+    options:{ plugins:{legend:{display:false}}, scales:{
+      y:{ grid:{color:'#1c2846'}, ticks:{callback:v=>v+'%'} }, x:{ grid:{display:false} } } }
+  });
+}
+
+/* ===================== Page 2: Cohorts ===================== */
+function pageCohorts(){
+  const cards = DATA.cohorts.map(c=>{
+    const color = COHORT_COLOR[c.CohortName];
+    return `
+    <div class="cohort-card" style="--c:${color}">
+      <h4>${c.CohortName}</h4>
+      <div class="big-label">Churn Rate</div>
+      <div class="big">${c.ChurnRatePct.toFixed(1)}%</div>
+      <div class="rows">
+        <div><span>Customers</span><b>${fmt.int(c.CustomerCount)} (${c.PctOfBase}%)</b></div>
+        <div><span>Engagement</span><b>${c.AvgEngagementScore.toFixed(1)}</b></div>
+        <div><span>Risk score</span><b>${c.AvgRiskScore.toFixed(1)}</b></div>
+        <div><span>Tenure</span><b>${c.AvgTenureMonths.toFixed(1)} mo</b></div>
+        <div><span>Monthly $</span><b>$${c.AvgMonthlyCharges.toFixed(0)}</b></div>
+        <div><span>M2M %</span><b>${c.PctMonthToMonth.toFixed(0)}%</b></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="page-head">
+    <h2>Cohort Explorer</h2>
+    <p>Five behavioural cohorts identified via K-Means clustering on engineered engagement and risk-score features (tenure, spend, services adopted, contract commitment).</p>
+  </div>
+  <div class="cohort-grid">${cards}</div>
+  <div class="grid g2b">
+    <div class="panel">
+      <h3>Churn Rate by Cohort</h3>
+      <div class="panel-sub">Ranked highest to lowest risk</div>
+      <div class="chart-wrap tall"><canvas id="chart-cohort-churn"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Engagement vs. Risk Score</h3>
+      <div class="panel-sub">400-customer sample, coloured by cohort \u2014 shows how clusters separate in feature space</div>
+      <div class="chart-wrap tall"><canvas id="chart-scatter"></canvas></div>
+    </div>
+  </div>`;
+}
+
+function buildCohortCharts(){
+  const co = DATA.cohorts;
+  new Chart(document.getElementById('chart-cohort-churn'), {
+    type:'bar',
+    data:{ labels: co.map(c=>c.CohortName),
+      datasets:[{ data: co.map(c=>c.ChurnRatePct), backgroundColor: co.map(c=>COHORT_COLOR[c.CohortName]), borderRadius:4 }]},
+    options:{ indexAxis:'y', plugins:{legend:{display:false}},
+      scales:{ x:{ grid:{color:'#1c2846'}, ticks:{callback:v=>v+'%'} }, y:{ grid:{display:false}, ticks:{font:{size:11}} } } }
+  });
+
+  const groups = {};
+  DATA.scatter_sample.forEach(d=>{ (groups[d.CohortName] = groups[d.CohortName]||[]).push(d); });
+  const datasets = Object.keys(groups).map(name=>({
+    label:name,
+    data: groups[name].map(d=>({x:d.EngagementScore,y:d.RiskScore})),
+    backgroundColor: COHORT_COLOR[name] + 'CC',
+    pointRadius:3.5,
+  }));
+  new Chart(document.getElementById('chart-scatter'), {
+    type:'scatter',
+    data:{ datasets },
+    options:{ plugins:{legend:{position:'bottom', labels:{boxWidth:8, font:{size:10}}}},
+      scales:{ x:{ title:{display:true,text:'Engagement Score', font:{size:10}}, grid:{color:'#1c2846'} },
+               y:{ title:{display:true,text:'Risk Score', font:{size:10}}, grid:{color:'#1c2846'} } } }
+  });
+}
+
+/* ===================== Page 3: Drivers ===================== */
+function pageDrivers(){
+  return `
+  <div class="page-head">
+    <h2>Churn Drivers</h2>
+    <p>Feature importances from the Random Forest churn model (AUC 0.85), alongside the raw churn-rate cuts that explain them.</p>
+  </div>
+  <div class="grid g2">
+    <div class="panel">
+      <h3>Model Feature Importance</h3>
+      <div class="panel-sub">RiskScore and contract type dominate the prediction</div>
+      <div class="chart-wrap tall"><canvas id="chart-importance"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Churn Rate by Payment Method</h3>
+      <div class="panel-sub">Electronic check is the highest-friction payment path</div>
+      <div class="chart-wrap tall"><canvas id="chart-payment"></canvas></div>
+    </div>
+  </div>
+  <div class="grid g2" style="margin-top:14px;">
+    <div class="panel">
+      <h3>Churn Rate by Internet Service</h3>
+      <div class="chart-wrap"><canvas id="chart-internet"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Churn Rate by Contract</h3>
+      <div class="chart-wrap"><canvas id="chart-contract-drivers"></canvas></div>
+    </div>
+  </div>`;
+}
+
+function buildDriverCharts(){
+  const fi = DATA.feature_importance.slice(0,10);
+  new Chart(document.getElementById('chart-importance'), {
+    type:'bar',
+    data:{ labels: fi.map(d=>d.Feature),
+      datasets:[{ data: fi.map(d=>d.Importance*100), backgroundColor:'#31c9c3', borderRadius:4 }]},
+    options:{ indexAxis:'y', plugins:{legend:{display:false}},
+      scales:{ x:{ grid:{color:'#1c2846'}, ticks:{callback:v=>v+'%'} }, y:{ grid:{display:false}, ticks:{font:{size:10.5}} } } }
+  });
+
+  const pm = DATA.by_payment;
+  new Chart(document.getElementById('chart-payment'), {
+    type:'bar',
+    data:{ labels: pm.map(d=>d.PaymentMethod), datasets:[{ data: pm.map(d=>d.ChurnRate*100), backgroundColor:'#f4b740', borderRadius:4 }]},
+    options:{ indexAxis:'y', plugins:{legend:{display:false}},
+      scales:{ x:{ grid:{color:'#1c2846'}, ticks:{callback:v=>v+'%'} }, y:{ grid:{display:false}, ticks:{font:{size:10.5}} } } }
+  });
+
+  const bi = DATA.by_internet;
+  new Chart(document.getElementById('chart-internet'), {
+    type:'bar',
+    data:{ labels: bi.map(d=>d.InternetService), datasets:[{ data: bi.map(d=>d.ChurnRate*100), backgroundColor:'#8b7cf6', borderRadius:4 }]},
+    options:{ plugins:{legend:{display:false}}, scales:{ y:{ grid:{color:'#1c2846'}, ticks:{callback:v=>v+'%'} }, x:{ grid:{display:false} } } }
+  });
+
+  const bc = DATA.by_contract;
+  new Chart(document.getElementById('chart-contract-drivers'), {
+    type:'bar',
+    data:{ labels: bc.map(d=>d.Contract), datasets:[{ data: bc.map(d=>d.ChurnRate*100), backgroundColor:'#ff6b5e', borderRadius:4 }]},
+    options:{ plugins:{legend:{display:false}}, scales:{ y:{ grid:{color:'#1c2846'}, ticks:{callback:v=>v+'%'} }, x:{ grid:{display:false} } } }
+  });
+}
+
+/* ===================== Page 4: Revenue at Risk ===================== */
+function pageRevenue(){
+  const rows = DATA.revenue_at_risk.map(r=>`
+    <tr>
+      <td>${r.CohortName}</td>
+      <td>${fmt.int(r.Customers)}</td>
+      <td>${fmt.int(r.ChurnedCustomers)}</td>
+      <td>${fmt.money(r.MonthlyRevenue)}</td>
+      <td>${fmt.money(r.MonthlyRevenueAtRisk)}</td>
+      <td>${fmt.money(r.AnnualRevenueAtRisk)}</td>
+    </tr>`).join('');
+
+  const totalAnnual = DATA.revenue_at_risk.reduce((s,r)=>s+r.AnnualRevenueAtRisk,0);
+
+  return `
+  <div class="page-head">
+    <h2>Revenue at Risk</h2>
+    <p>Monthly recurring revenue tied to already-churned accounts, projected annually, broken out by cohort.</p>
+  </div>
+  <div class="kpi-row" style="grid-template-columns:repeat(3,1fr);">
+    <div class="kpi risk"><div class="label">Total Annual Revenue at Risk</div><div class="value">${fmt.money(totalAnnual)}</div><div class="sub">summed across all 5 cohorts</div></div>
+    <div class="kpi"><div class="label">Largest Exposure</div><div class="value" style="font-size:18px;">At-Risk Newcomers</div><div class="sub">${fmt.money(882208.8)} / yr &middot; 21.5% of base</div></div>
+    <div class="kpi good"><div class="label">Lowest Exposure</div><div class="value" style="font-size:18px;">Contract-Locked Loyalists</div><div class="sub">${fmt.money(14419.2)} / yr &middot; 17.0% of base</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="panel">
+      <h3>Annual Revenue at Risk by Cohort</h3>
+      <div class="chart-wrap tall"><canvas id="chart-revenue"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>Cohort Revenue Detail</h3>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Cohort</th><th>Customers</th><th>Churned</th><th>Monthly Rev.</th><th>Monthly at Risk</th><th>Annual at Risk</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildRevenueCharts(){
+  const rr = DATA.revenue_at_risk;
+  new Chart(document.getElementById('chart-revenue'), {
+    type:'bar',
+    data:{ labels: rr.map(r=>r.CohortName),
+      datasets:[{ data: rr.map(r=>r.AnnualRevenueAtRisk), backgroundColor: rr.map(r=>COHORT_COLOR[r.CohortName]), borderRadius:4 }]},
+    options:{ plugins:{legend:{display:false}, tooltip:{callbacks:{label:(c)=>fmt.money(c.raw)}}},
+      scales:{ y:{ grid:{color:'#1c2846'}, ticks:{callback:v=>'$'+(v/1000)+'K'} }, x:{ grid:{display:false}, ticks:{font:{size:10}} } } }
+  });
+}
+
+/* ===================== Page 5: Playbook ===================== */
+function pagePlaybook(){
+  const cards = PLAYBOOK.map((p,i)=>`
+    <div class="play-card">
+      <div class="play-num">0${i+1}</div>
+      <div>
+        <h4>${p.title}</h4>
+        <p>${p.body}</p>
+        <div class="target">Target: <b>${p.target}</b></div>
+      </div>
+    </div>`).join('');
+
+  const wl = DATA.watchlist.map(w=>{
+    const p = w.PredictedChurnProbability;
+    const badge = p>=60 ? 'high' : p>=35 ? 'med' : 'low';
+    return `<tr>
+      <td>${w.customerID}</td>
+      <td>${w.CohortName}</td>
+      <td><span class="badge ${badge}">${p.toFixed(1)}%</span></td>
+      <td>${w.tenure} mo</td>
+      <td>$${w.MonthlyCharges.toFixed(2)}</td>
+      <td>${w.Contract}</td>
+    </tr>`;
+  }).join('');
+
+  return `
+  <div class="page-head">
+    <h2>Retention Playbook</h2>
+    <p>Six interventions mapped directly to the cohorts and churn drivers surfaced on the previous pages, plus a live watchlist of currently active customers scored highest for near-term churn risk.</p>
+  </div>
+  <div class="playbook-grid">${cards}</div>
+  <div class="panel" style="margin-top:18px;">
+    <h3>High-Risk Watchlist \u2014 Active Customers</h3>
+    <div class="panel-sub">Top-scored active accounts by predicted churn probability (Random Forest model), for retention team follow-up</div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Customer ID</th><th>Cohort</th><th>Churn Prob.</th><th>Tenure</th><th>Monthly $</th><th>Contract</th></tr></thead>
+        <tbody>${wl}</tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/* ===================== Boot ===================== */
+function boot(){
+  renderTabs();
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="page active" id="page-overview">${pageOverview()}</div>
+    <div class="page" id="page-cohorts">${pageCohorts()}</div>
+    <div class="page" id="page-drivers">${pageDrivers()}</div>
+    <div class="page" id="page-revenue">${pageRevenue()}</div>
+    <div class="page" id="page-playbook">${pagePlaybook()}</div>
+  `;
+  document.querySelector('.tab[data-page="overview"]').classList.add('active');
+  buildOverviewCharts();
+  window.__charted_overview = true;
+}
+boot();
+
+</script>
+</body>
+</html>

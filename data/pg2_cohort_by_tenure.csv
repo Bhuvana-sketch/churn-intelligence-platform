@@ -1,0 +1,25 @@
+CohortName,TenureBucket,ChurnFlag
+At-Risk Newcomers,0-6 mo,0.6939655172413793
+At-Risk Newcomers,7-12 mo,0.5443425076452599
+At-Risk Newcomers,13-24 mo,0.5014164305949008
+At-Risk Newcomers,25-48 mo,0.47368421052631576
+At-Risk Newcomers,49-72 mo,0.5
+Contract-Locked Loyalists,0-6 mo,0.0
+Contract-Locked Loyalists,7-12 mo,0.0
+Contract-Locked Loyalists,13-24 mo,0.039735099337748346
+Contract-Locked Loyalists,25-48 mo,0.028708133971291867
+Contract-Locked Loyalists,49-72 mo,0.021164021164021163
+Disengaged Low-Spenders,0-6 mo,0.3940620782726046
+Disengaged Low-Spenders,7-12 mo,0.18861209964412812
+Disengaged Low-Spenders,13-24 mo,0.1597222222222222
+Disengaged Low-Spenders,25-48 mo,0.12837837837837837
+Disengaged Low-Spenders,49-72 mo,0.09090909090909091
+High-Value Champions,7-12 mo,0.0
+High-Value Champions,13-24 mo,0.0
+High-Value Champions,25-48 mo,0.1043956043956044
+High-Value Champions,49-72 mo,0.07900852052672347
+Wavering High-Spenders,0-6 mo,0.45
+Wavering High-Spenders,7-12 mo,0.38596491228070173
+Wavering High-Spenders,13-24 mo,0.2914798206278027
+Wavering High-Spenders,25-48 mo,0.2973352033660589
+Wavering High-Spenders,49-72 mo,0.26358695652173914

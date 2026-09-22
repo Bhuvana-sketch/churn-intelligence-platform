@@ -1,0 +1,6 @@
+CohortName,CustomerCount,ChurnRatePct,AvgEngagementScore,AvgRiskScore,AvgTenureMonths,AvgMonthlyCharges,AvgServicesAdopted,PctMonthToMonth,PctOfBase
+At-Risk Newcomers,1511,59.7,21.2,79.0,10.1,79.74,2.8,99.9,21.5
+Wavering High-Spenders,1381,29.3,46.2,48.3,37.5,85.93,4.6,76.2,19.6
+Disengaged Low-Spenders,1469,28.0,16.0,51.6,10.2,33.4,1.4,88.9,20.9
+High-Value Champions,1483,8.2,79.5,11.7,61.8,89.88,6.0,0.1,21.1
+Contract-Locked Loyalists,1199,2.5,52.2,13.0,45.3,28.86,1.7,0.5,17.0

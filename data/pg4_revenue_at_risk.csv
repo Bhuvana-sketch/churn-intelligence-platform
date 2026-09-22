@@ -1,0 +1,6 @@
+CohortName,Customers,ChurnedCustomers,MonthlyRevenue,MonthlyRevenueAtRisk,AnnualRevenueAtRisk
+At-Risk Newcomers,1511.0,902.0,120488.6,73517.4,882208.8
+Wavering High-Spenders,1381.0,405.0,118667.75,37203.35,446440.2
+Disengaged Low-Spenders,1469.0,411.0,49066.25,15232.85,182794.2
+High-Value Champions,1483.0,121.0,133285.15,11975.65,143707.8
+Contract-Locked Loyalists,1199.0,30.0,34608.85,1201.6,14419.2

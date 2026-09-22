@@ -1,0 +1,24 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Environments
+.venv/
+venv/
+env/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+
+# Raw source data — auto-downloaded by scripts/01_feature_engineering.py, no need to track
+data/telco.csv
+
+# Jupyter
+.ipynb_checkpoints/
