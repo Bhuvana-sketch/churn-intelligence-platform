@@ -7,7 +7,7 @@ customers into **5 behavioural cohorts** using engineered engagement and risk-sc
 features, and designed a **5-page dashboard** and a **6-point retention playbook** to
 translate the findings into actionable business recommendations.
 
-**[View the live dashboard →](dashboard/churn_dashboard.html)**
+**[View the live dashboard →](https://bhuvana-sketch.github.io/churn-intelligence-platform/dashboard/churn_dashboard.html)**
 
 ## What's here
 
